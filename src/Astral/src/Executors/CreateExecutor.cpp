@@ -113,9 +113,9 @@ void Create::execute(Moonlight::API::ParsedQuery const& parsed_query)
     if (query.is_volatile)
     {
         // TODO: Provide implementation
-        throw std::runtime_error{
-            "[~/lunardb/src/Astral/src/Executors/CreateExecutor.cpp:is_volatile] Not implemented "
-            "yet..."};
+        // throw std::runtime_error{
+        //     "[~/lunardb/src/Astral/src/Executors/CreateExecutor.cpp:is_volatile] Not implemented
+        //     " "yet..."};
     }
 
     static_cast<bool>(query.single) ? LunarDB::Astral::Implementation::createSingle(query)
