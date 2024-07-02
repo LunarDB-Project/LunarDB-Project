@@ -1,5 +1,6 @@
 #include <cassert>
 #include <queue>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "LunarDB/Astral/QueryExecutors.hpp"
@@ -90,12 +91,56 @@ void createSingle(Common::QueryData::Create const& config)
     }
 }
 
+void replace(std::string& src, std::string_view from, std::string_view to)
+{
+    if (auto const start_pos = src.find(from); start_pos != std::string::npos)
+    {
+        src.replace(start_pos, from.length(), to);
+    }
+}
+
 void createMultiple(Common::QueryData::Create const& config)
 {
-    // TODO: Provide implementation
-    throw std::runtime_error{
-        "[~/lunardb/src/Astral/src/Executors/CreateExecutor.cpp:createMultiple(...)] Not "
-        "implemented yet..."};
+    using namespace std::string_view_literals;
+
+    auto const& multiple{*config.multiple};
+    auto database{Selenity::API::SystemCatalog::Instance().getDatabaseInUse()};
+
+    std::vector<std::string> collection_names{};
+    collection_names.reserve(multiple.schema_names.size());
+
+    std::unordered_map<std::string, std::string> schemas_to_collections{};
+
+    for (auto const& schema : multiple.schema_names)
+    {
+        std::string collection_name{multiple.structure_name_format};
+        static auto constexpr c_placeholder{"%TypeName%"sv};
+        if (auto const start_pos = collection_name.find(c_placeholder); start_pos != std::string::npos)
+        {
+            collection_name.replace(start_pos, c_placeholder.length(), schema);
+        }
+
+        std::ignore = schemas_to_collections.emplace(schema, std::move(collection_name));
+    }
+
+    for (auto const& [schema_name, collection_name] : schemas_to_collections)
+    {
+        database->createCollection(collection_name, schema_name, config.structure_type, {});
+    }
+
+    auto& schemas_manager{LunarDB::Selenity::API::SchemasCatalog::Instance()};
+    for (auto& [schema_name, collection_name] : schemas_to_collections)
+    {
+        auto const& schema = schemas_manager.getSchema(schema_name);
+        for (auto const& field : schema.fields)
+        {
+            auto it = schemas_to_collections.find(field.type);
+            if (it != schemas_to_collections.end())
+            {
+                database->rebind(collection_name, field.name, it->second, true);
+            }
+        }
+    }
 }
 
 } // namespace
