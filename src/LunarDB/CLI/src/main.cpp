@@ -399,7 +399,9 @@ int main(int argc, char const* argv[])
 
         if (input_stream_ptr == &input_file)
         {
-            std::cout << query << std::endl;
+            std::string_view query_sv{query};
+            LunarDB::Common::CppExtensions::StringUtils::trim(query_sv);
+            std::cout << query_sv << std::endl;
         }
 
         LunarDB::Common::CppExtensions::Timer timer{};

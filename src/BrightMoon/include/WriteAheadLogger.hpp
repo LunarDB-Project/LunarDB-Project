@@ -54,13 +54,15 @@ private: // methods
     ///
     void setRecoveryFlag(ERecoveryFlag flag) const;
 
+    void saveRollbackDataToDisk() const;
+    void loadRollbackDataFromDisk();
+
 private: // fields
     std::ofstream m_log{};
     std::optional<std::filesystem::path> m_recovery_file_path{};
     std::optional<Common::CppExtensions::UniqueID> m_current_transaction_uid{};
 
-    std::stack<std::string> m_commit_savepoint_hashes{};
-    std::optional<std::string> m_last_commit_savepoint_hash{};
+    std::stack<std::string> m_savepoints_history{};
     std::unordered_set<std::string> m_rollbacked_hashes{};
 };
 

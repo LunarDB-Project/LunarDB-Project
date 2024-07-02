@@ -537,8 +537,8 @@ void TableManager::deleteWhere(Common::QueryData::WhereClause const& where)
 // TODO: Refactor
 void TableManager::overwrite(nlohmann::json& updated_json)
 {
-    std::string const& rid{updated_json["_rid"]};
-    auto documents_path{getDataHomePath()};
+    std::string const& overwrited_rid{updated_json["_rid"]};
+    auto const documents_path{getDataHomePath()};
 
     std::uint64_t entries_count{0};
     auto const file_path{getDataHomePath() / "metadata.ldb"};
@@ -560,20 +560,13 @@ void TableManager::overwrite(nlohmann::json& updated_json)
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
                 collection_entry_ptr->data = nlohmann::json::from_bson(bson);
-                if (collection_entry_ptr->data["_del"] == 1 || collection_entry_ptr->data["_rid"] != rid)
+                if (collection_entry_ptr->data["_del"] == 1 ||
+                    collection_entry_ptr->data["_rid"] != overwrited_rid)
                 {
                     continue;
                 }
 
-                LunarDB::BrightMoon::API::Transactions::UpdateTransactionData wal_data{};
-                wal_data.database =
-                    LunarDB::Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->getName();
-                wal_data.collection = m_collection_config->name;
-                wal_data.old_json = collection_entry_ptr->getJSON().dump();
-                LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(wal_data);
-
                 auto database = Selenity::API::SystemCatalog::Instance().getDatabaseInUse();
-                auto& entry_json = collection_entry_ptr->getJSON();
 
                 std::unordered_map<std::string, std::string> rids{};
                 for (auto const& [field, collection_uid] : m_collection_config->schema.bindings)
@@ -582,9 +575,16 @@ void TableManager::overwrite(nlohmann::json& updated_json)
                         std::reinterpret_pointer_cast<LunarDB::Selenity::API::Managers::Collections::TableManager>(
                             database->getCollection(collection_uid));
                     nlohmann::json temp_json{};
-                    collection->selectEntry(rid, temp_json);
+                    collection->selectEntry(overwrited_rid, temp_json);
                     rids.emplace(field, temp_json["_rid"]);
                 }
+
+                LunarDB::BrightMoon::API::Transactions::UpdateTransactionData wal_data{};
+                wal_data.database =
+                    LunarDB::Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->getName();
+                wal_data.collection = m_collection_config->name;
+                wal_data.old_json = collection_entry_ptr->getJSON().dump();
+                LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(wal_data);
 
                 for (auto const& [field, rid] : rids)
                 {
@@ -606,6 +606,8 @@ void TableManager::overwrite(nlohmann::json& updated_json)
                 Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
                 table_file.seekg(current_pos, std::ios::beg);
+
+                break;
             }
             table_file.close();
         }
@@ -666,11 +668,17 @@ void TableManager::update(Common::QueryData::Update const& config)
                     collection_entry_ptr.reset(dynamic_cast<TableManager::CollectionEntry*>(
                         icollection_entry_ptr.release()));
 
+                    auto original = collection_entry_ptr->getJSON();
+                    for (auto const& [field, rid] : rids)
+                    {
+                        original[field] = rid;
+                    }
+
                     LunarDB::BrightMoon::API::Transactions::UpdateTransactionData wal_data{};
                     wal_data.database =
                         LunarDB::Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->getName();
                     wal_data.collection = m_collection_config->name;
-                    wal_data.old_json = collection_entry_ptr->getJSON().dump();
+                    wal_data.old_json = original.dump();
                     LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(wal_data);
 
                     Collections::update(
