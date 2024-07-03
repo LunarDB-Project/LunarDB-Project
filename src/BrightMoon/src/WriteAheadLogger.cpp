@@ -107,7 +107,7 @@ ERecoveryFlag WriteAheadLogger::getRecoveryFlag() const
     CLOG_VERBOSE("::readRecoveryFlag()");
     auto const recovery_file_path{getRecoveryFlagFilePath()};
 
-    ERecoveryFlag flag{ERecoveryFlag::NoRecover};
+    ERecoveryFlag flag{ERecoveryFlag::Recover};
 
     if (!std::filesystem::exists(recovery_file_path))
     {
@@ -152,11 +152,11 @@ void WriteAheadLogger::recover()
     CLOG_VERBOSE("::recover()");
     auto const recovery_flag = getRecoveryFlag();
 
-    if (recovery_flag == ERecoveryFlag::NoRecover)
-    {
-        CLOG_VERBOSE("::recover(): No recovery needed");
-        return;
-    }
+    // if (recovery_flag == ERecoveryFlag::NoRecover)
+    // {
+    //     CLOG_VERBOSE("::recover(): No recovery needed");
+    //     return;
+    // }
 
     if (!static_cast<bool>(m_recovery_file_path))
     {

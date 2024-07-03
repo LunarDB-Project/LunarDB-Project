@@ -740,7 +740,7 @@ void TableManager::undoInsert(nlohmann::json json, bool is_last_call)
     auto const metadata_file_path{getDataHomePath() / "metadata.ldb"};
     std::fstream metadata_file{};
     metadata_file.open(metadata_file_path, std::ios::in | std::ios::binary);
-
+    std::size_t lost_count{0};
     if (metadata_file.is_open())
     {
         Common::CppExtensions::BinaryIO::Deserializer::deserialize(metadata_file, entries_count);
@@ -755,42 +755,50 @@ void TableManager::undoInsert(nlohmann::json json, bool is_last_call)
 
             for (auto const _ : std::ranges::iota_view{0u, entries_count})
             {
-                CLOG_VERBOSE(">>>>>");
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
-                auto json_entry = nlohmann::json::from_bson(bson);
-                CLOG_VERBOSE("TableManager::undoInsert(): index:", _, "json:", json_entry.dump());
-
-                if (auto const rid_it = s_inserted_rids.find(json_entry["_rid"]);
-                    rid_it != s_inserted_rids.end())
+                try
                 {
-                    auto const rid{*rid_it};
-                    CLOG_INFO("TableManager::undoInsert(): start RID:", rid);
-                    json_entry["_del"] = "1";
-                    bson = nlohmann::json::to_bson(json_entry);
+                    auto json_entry = nlohmann::json::from_bson(bson);
+                    CLOG_VERBOSE("TableManager::undoInsert(): index:", _, "json:", json_entry.dump());
 
-                    auto const current_pos = table_file.tellg();
+                    if (auto const rid_it = s_inserted_rids.find(json_entry["_rid"]);
+                        rid_it != s_inserted_rids.end())
+                    {
+                        auto const rid{*rid_it};
+                        CLOG_INFO("TableManager::undoInsert(): start RID:", rid);
+                        json_entry["_del"] = "1";
+                        bson = nlohmann::json::to_bson(json_entry);
 
-                    table_file.seekp(
-                        -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
-                        std::ios::cur);
-                    Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
+                        auto const current_pos = table_file.tellg();
 
-                    table_file.seekg(current_pos, std::ios::beg);
+                        table_file.seekp(
+                            -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
+                            std::ios::cur);
+                        Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
-                    undo_number++;
-                    CLOG_INFO(
-                        "TableManager::undoInsert(): end  RID:",
-                        rid,
-                        "->",
-                        undo_number,
-                        "out of",
-                        undo_size,
-                        "changes undone");
-                    s_inserted_rids.erase(rid_it);
+                        table_file.seekg(current_pos, std::ios::beg);
+
+                        undo_number++;
+                        CLOG_INFO(
+                            "TableManager::undoInsert(): end  RID:",
+                            rid,
+                            "->",
+                            undo_number,
+                            "out of",
+                            undo_size,
+                            "changes undone");
+                        s_inserted_rids.erase(rid_it);
+                    }
                 }
-                CLOG_VERBOSE("<<<<");
+                catch (std::exception const& e)
+                {
+                    ++lost_count;
+                }
             }
+            metadata_file.open(metadata_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
+            Common::CppExtensions::BinaryIO::Serializer::serialize(
+                metadata_file, entries_count - lost_count);
         }
         else
         {
@@ -847,34 +855,40 @@ void TableManager::undoUpdate(nlohmann::json json, bool is_last_call)
             {
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
-                auto json_data = nlohmann::json::from_bson(bson);
-
-                if (auto const rid_it = s_updated_rids.find(json_data["_rid"]);
-                    rid_it != s_updated_rids.end())
+                try
                 {
-                    auto const rid{rid_it->first};
-                    CLOG_INFO("TableManager::undoUpdate(): RID:", rid);
-                    bson = nlohmann::json::to_bson(rid_it->second);
+                    auto json_data = nlohmann::json::from_bson(bson);
 
-                    auto const current_pos = table_file.tellg();
+                    if (auto const rid_it = s_updated_rids.find(json_data["_rid"]);
+                        rid_it != s_updated_rids.end())
+                    {
+                        auto const rid{rid_it->first};
+                        CLOG_INFO("TableManager::undoUpdate(): RID:", rid);
+                        bson = nlohmann::json::to_bson(rid_it->second);
 
-                    table_file.seekp(
-                        -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
-                        std::ios::cur);
-                    Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
+                        auto const current_pos = table_file.tellg();
 
-                    table_file.seekg(current_pos, std::ios::beg);
+                        table_file.seekp(
+                            -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
+                            std::ios::cur);
+                        Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
-                    undo_number++;
-                    CLOG_INFO(
-                        "TableManager::undoInsert(): done RID:",
-                        rid,
-                        "->",
-                        undo_number,
-                        "out of",
-                        undo_size,
-                        "changes undone");
-                    s_updated_rids.erase(rid_it);
+                        table_file.seekg(current_pos, std::ios::beg);
+
+                        undo_number++;
+                        CLOG_INFO(
+                            "TableManager::undoInsert(): done RID:",
+                            rid,
+                            "->",
+                            undo_number,
+                            "out of",
+                            undo_size,
+                            "changes undone");
+                        s_updated_rids.erase(rid_it);
+                    }
+                }
+                catch (std::exception const& e)
+                {
                 }
             }
             table_file.close();
@@ -934,35 +948,41 @@ void TableManager::undoDelete(nlohmann::json json, bool is_last_call)
             {
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
-                auto json_data = nlohmann::json::from_bson(bson);
-
-                if (auto const rid_it = s_deleted_rids.find(json_data["_rid"]);
-                    rid_it != s_deleted_rids.end())
+                try
                 {
-                    auto const rid{*rid_it};
-                    CLOG_INFO("TableManager::undoDelete(): RID:", rid);
-                    json_data["_del"] = "0";
-                    bson = nlohmann::json::to_bson(json_data);
+                    auto json_data = nlohmann::json::from_bson(bson);
 
-                    auto const current_pos = table_file.tellg();
+                    if (auto const rid_it = s_deleted_rids.find(json_data["_rid"]);
+                        rid_it != s_deleted_rids.end())
+                    {
+                        auto const rid{*rid_it};
+                        CLOG_INFO("TableManager::undoDelete(): RID:", rid);
+                        json_data["_del"] = "0";
+                        bson = nlohmann::json::to_bson(json_data);
 
-                    table_file.seekp(
-                        -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
-                        std::ios::cur);
-                    Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
+                        auto const current_pos = table_file.tellg();
 
-                    table_file.seekg(current_pos, std::ios::beg);
+                        table_file.seekp(
+                            -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
+                            std::ios::cur);
+                        Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
-                    undo_number++;
-                    CLOG_INFO(
-                        "TableManager::undoInsert(): done RID:",
-                        rid,
-                        "->",
-                        undo_number,
-                        "out of",
-                        undo_size,
-                        "changes undone");
-                    s_deleted_rids.erase(rid_it);
+                        table_file.seekg(current_pos, std::ios::beg);
+
+                        undo_number++;
+                        CLOG_INFO(
+                            "TableManager::undoInsert(): done RID:",
+                            rid,
+                            "->",
+                            undo_number,
+                            "out of",
+                            undo_size,
+                            "changes undone");
+                        s_deleted_rids.erase(rid_it);
+                    }
+                }
+                catch (std::exception const& e)
+                {
                 }
             }
             table_file.close();
