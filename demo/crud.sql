@@ -24,3 +24,5 @@ select from structure somedocument_test where ( obj.field1 == val00 ) fields [ _
 
 delete from structure somedocument_test where ( obj.field1 == val00 );
 select from structure somedocument_test where ( 1 == 1 ) fields [ _rid, str, obj.field1, obj.field2 ];
+
+select from structure somedocument_test where ( ( str == val1 or str == val2 ) and obj.field2 < 20 ) fields [ _rid, str, obj.field1, obj.field2 ];
