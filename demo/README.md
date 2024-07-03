@@ -5,17 +5,22 @@
 ### 1.1. Aplicația Web ”AstroHuddle”
 
 ```
+./scripts/release/server.sh
+tail -f lunardb/logs/lunardb.log
 
+node start
 ```
 
 ### 1.2. Conexiune C++ <-> JavaScript
 
-### 1.3. Logging
-
-### 1.4. Teste de integrare JavaScript -> C++
+Teste de integrare, Logging, Scenariu
 
 ```
+# test de stres
+node ./test/integration/scenario.03.integration-test.js
 
+# scenariu business
+node ./test/integration/scenario.04.integration-test.js
 ```
 
 ## 2. LunarDB CLI, Scenarii practice
@@ -23,12 +28,14 @@
 ### 1.1. ”Business”
 
 ```
-./scripts/release/cli.sh ./demo/scenario01-business.sql
+./scripts/release/cli.sh ./demo/business.sql
 ```
 
 ### 1.2. ”CRUD” Generic
 
 ```
+./scripts/release/cli.sh ./demo/crud.sql
+./scripts/release/cli.sh ./demo/select.sql
 ./scripts/release/cli.sh ./demo/rollback_table.sql
 ./scripts/release/cli.sh ./demo/rollback_document.sql
 ```
