@@ -71,14 +71,11 @@ void DatabaseManager::createCollection(
         }
         catch (std::exception const& e)
         {
-            if (collection_type == LunarDB::Common::QueryData::Primitives::EStructureType::Table)
-            {
-                auto new_collection_name{name + "_" + field.name};
+            auto new_collection_name{name + "_" + field.name};
 
-                createCollection(new_collection_name, field.type, collection_type, {});
+            createCollection(new_collection_name, field.type, collection_type, {});
 
-                updated_bindings.emplace_back(field.name, std::move(new_collection_name));
-            }
+            updated_bindings.emplace_back(field.name, std::move(new_collection_name));
         }
     }
 
