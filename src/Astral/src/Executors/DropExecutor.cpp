@@ -13,15 +13,8 @@ void Drop::execute(Moonlight::API::ParsedQuery const& parsed_query)
 
     auto const& query = parsed_query.get<Common::QueryData::Drop>();
 
-    if (query.cascade)
-    {
-        // TODO: Provide implementation
-        throw std::runtime_error{
-            "[~/lunardb/src/Astral/src/Executors/DropExecutor.cpp:execute::cascade] Not "
-            "implemented yet..."};
-    }
-
-    Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->dropCollection(query.structure_name);
+    Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->dropCollection(
+        query.structure_name, query.cascade);
 }
 
 } // namespace LunarDB::Astral::Implementation

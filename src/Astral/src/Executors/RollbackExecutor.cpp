@@ -10,11 +10,9 @@ void Rollback::execute(Moonlight::API::ParsedQuery const& parsed_query)
 {
     CLOG_VERBOSE("Rollback::execute()");
 
-    // TODO: Provide implementation
     auto const& query = parsed_query.get<Common::QueryData::Rollback>();
 
-    LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(
-        LunarDB::BrightMoon::API::Transactions::RollbackTransactionData{});
+    LunarDB::BrightMoon::API::WriteAheadLogger::Instance().rollback(query.hash);
 }
 
 } // namespace LunarDB::Astral::Implementation

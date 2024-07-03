@@ -157,21 +157,18 @@ TEST(Astral_UpdateExecutorTest, table_update)
                     "4400"),
                 Common::QueryData::Init::UpdateInit::ModifyInit{}.field("name").expression("ROB")});
 
-    // TODO: Fix Table::update
-    // ASSERT_NO_THROW({ Astral::Implementation::Update::execute(parsed_query); });
+    ASSERT_NO_THROW({ Astral::Implementation::Update::execute(parsed_query); });
 
-    // ASSERT_NO_THROW({ selected_entries = collection->select(select_config); });
-    // ASSERT_EQ(selected_entries.size(), objects.size());
+    ASSERT_NO_THROW({ selected_entries = collection->select(select_config); });
+    ASSERT_EQ(selected_entries.size(), objects.size());
 
-    // for (auto const& obj : selected_entries)
-    // {
-    //     auto const& json{obj->getJSON()};
-    //     EXPECT_EQ(json["name"], "ROB"s);
-    //     EXPECT_EQ(json["salary"], "4400"s);
-    //     EXPECT_EQ(json["birth_date"], "09/10/1985"s);
-    // }
-
-    // auto const dummy_breakpoint{404};
+    for (auto const& obj : selected_entries)
+    {
+        auto const& json{obj->getJSON()};
+        EXPECT_EQ(json["name"], "ROB"s);
+        EXPECT_EQ(json["salary"], "4400"s);
+        EXPECT_EQ(json["birth_date"], "09/10/1985"s);
+    }
 }
 
 TEST(Astral_UpdateExecutorTest, document_update)
@@ -332,8 +329,6 @@ TEST(Astral_UpdateExecutorTest, document_update)
         EXPECT_EQ(json["salary"], "4400.0000000000"s);
         EXPECT_EQ(json["birth_date"], "09/10/1985"s);
     }
-
-    auto const dummy_breakpoint{404};
 }
 
 } // namespace LunarDB::Astral::Tests

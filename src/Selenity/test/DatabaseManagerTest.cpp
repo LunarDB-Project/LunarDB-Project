@@ -67,8 +67,8 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, binary_io)
             manager2.createCollection(c_collection_name, c_schema1_name, c_structure_type, c_bindings);
         },
         std::runtime_error);
-    ASSERT_NO_THROW({ manager2.dropCollection(c_collection_name); });
-    EXPECT_THROW({ manager2.dropCollection(c_collection_name); }, std::runtime_error);
+    ASSERT_NO_THROW({ manager2.dropCollection(c_collection_name, false); });
+    EXPECT_THROW({ manager2.dropCollection(c_collection_name, false); }, std::runtime_error);
 
     DatabaseManager manager3{database_config};
     EXPECT_EQ(manager1.getHomePath(), manager3.getHomePath());
@@ -78,7 +78,7 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, binary_io)
     EXPECT_THROW({ manager2.getCollection(c_collection_name); }, std::runtime_error);
     EXPECT_THROW({ manager2.getCollection("random"); }, std::runtime_error);
 
-    EXPECT_THROW({ manager3.dropCollection(c_collection_name); }, std::runtime_error);
+    EXPECT_THROW({ manager3.dropCollection(c_collection_name, false); }, std::runtime_error);
     ASSERT_NO_THROW({
         manager3.createCollection(c_collection_name, c_schema1_name, c_structure_type, c_bindings);
     });
@@ -267,7 +267,7 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, rebind)
     ASSERT_NO_THROW({ schemas_catalog.getSchema(c_schema2.name); });
 
     auto const c_collection_name2{"SomeCollection2"s};
-    auto const c_structure_type2{Common::QueryData::Primitives::EStructureType::Collection};
+    auto const c_structure_type2{Common::QueryData::Primitives::EStructureType::Table};
     auto const c_bindings2{std::vector<Common::QueryData::Create::Single::Binding>{}};
 
     ASSERT_NO_THROW({
@@ -275,7 +275,7 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, rebind)
     });
 
     // rebind
-    ASSERT_NO_THROW({ database->rebind(c_collection_name2, "field_1", c_collection_name); });
+    ASSERT_NO_THROW({ database->rebind(c_collection_name2, "field_1", c_collection_name, false); });
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_select_truncate)
@@ -435,8 +435,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_select_truncate
         }
     }
     EXPECT_EQ(entries_count, 0);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_delete)
@@ -596,8 +594,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_delete)
         }
     }
     EXPECT_EQ(entries_count, 0);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_delete)
@@ -757,8 +753,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_delete)
         }
     }
     EXPECT_EQ(entries_count, 2);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_delete_enhanced)
@@ -919,8 +913,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_delete_enhanced)
         }
     }
     EXPECT_EQ(entries_count, 2);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, _table_insert_delete_enhanced)
@@ -1081,8 +1073,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, _table_insert_delete_enhanced)
         }
     }
     EXPECT_EQ(entries_count, 2);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_delete_enhanced_more)
@@ -1248,8 +1238,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_delete_enhanced
         }
     }
     EXPECT_EQ(entries_count, 0);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_select_update_select)
@@ -1415,8 +1403,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, document_insert_select_update_s
         }
     }
     EXPECT_EQ(entries_count, 0);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_select_truncate)
@@ -1576,8 +1562,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_select_truncate)
         }
     }
     EXPECT_EQ(entries_count, 0);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_select_update_select)
@@ -1723,21 +1707,18 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, table_insert_select_update_sele
                     "4444"),
                 Common::QueryData::Init::UpdateInit::ModifyInit{}.field("name").expression("ROB")});
 
-    // TODO: Fix Table::update
-    // ASSERT_NO_THROW({ collection->update(update_config); });
+    ASSERT_NO_THROW({ collection->update(update_config); });
 
-    // ASSERT_NO_THROW({ selected_entries = collection->select(select_config); });
-    // ASSERT_EQ(selected_entries.size(), objects.size());
+    ASSERT_NO_THROW({ selected_entries = collection->select(select_config); });
+    ASSERT_EQ(selected_entries.size(), objects.size());
 
-    // for (auto const& obj : selected_entries)
-    // {
-    //     auto const& json{obj->getJSON()};
-    //     EXPECT_EQ(json["name"], "ROB"s);
-    //     EXPECT_EQ(json["salary"], "4444"s);
-    //     EXPECT_EQ(json["birth_date"], "09/10/1985"s);
-    // }
-
-    // auto const dummy_breakpoint{404};
+    for (auto const& obj : selected_entries)
+    {
+        auto const& json{obj->getJSON()};
+        EXPECT_EQ(json["name"], "ROB"s);
+        EXPECT_EQ(json["salary"], "4444"s);
+        EXPECT_EQ(json["birth_date"], "09/10/1985"s);
+    }
 }
 
 TEST(Selenity_SystemCatalog_DatabaseManagerTest, insert_document_extended)
@@ -1780,7 +1761,7 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, insert_document_extended)
     // objects
     std::vector<Common::QueryData::Insert::Object> objects{};
 
-    // TODO: Fix nested objects
+    // TODO: Fix insert extra nested objects on documents
     // auto dummy_obj{Common::QueryData::Insert::Object{}};
     // dummy_obj.entries.emplace("IQ", "101");
     // dummy_obj.entries.emplace("SKILL", "404");
@@ -1816,8 +1797,6 @@ TEST(Selenity_SystemCatalog_DatabaseManagerTest, insert_document_extended)
     ASSERT_NO_THROW({ collection = database->getCollection(c_collection_name); });
 
     ASSERT_NO_THROW({ collection->insert(objects); });
-
-    auto const dummy_breakpoint{404};
 }
 
 } // namespace LunarDB::Selenity::API::Managers::Tests

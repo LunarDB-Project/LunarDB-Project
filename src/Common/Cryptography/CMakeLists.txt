@@ -6,6 +6,7 @@ add_lunar_library(
         include/AES256.hpp
 
     PRIVATE_DEPENDENCIES
+        LunarDB_Selenity
         OpenSSL::SSL
         OpenSSL::Crypto
 

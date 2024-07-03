@@ -97,20 +97,30 @@ private: // private API
 
     void loadSystemConfiguration();
 
+public: // data structures
+    struct Config
+    {
+        std::filesystem::path home_path{};
+
+        struct Encryption
+        {
+            std::string key{};
+            std::string iv{};
+        };
+        Encryption encryption{};
+    };
+
 public: // overrides
     std::filesystem::path getHomePath() const override;
     std::filesystem::path getDataHomePath() const override;
     std::filesystem::path getCatalogFilePath() const override;
+    Config const& getSystemConfiguration() const;
 
 private: // data structures
     struct DatabaseInUse
     {
         std::string name;
         Common::CppExtensions::UniqueID uid;
-    };
-    struct Config
-    {
-        std::filesystem::path home_path{};
     };
 
 private: // fields

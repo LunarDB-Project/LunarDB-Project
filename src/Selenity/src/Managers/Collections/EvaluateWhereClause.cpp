@@ -1,7 +1,10 @@
+#include <algorithm>
 #include <ranges>
+#include <regex>
 #include <string>
 #include <variant>
 
+#include "LunarDB/Moonlight/QueryExtractor.hpp"
 #include "LunarDB/Selenity/Managers/Collections/EvaluateWhereClause.hpp"
 #include "LunarDB/Selenity/SystemCatalog.hpp"
 
@@ -15,6 +18,14 @@ using FieldData = std::variant<std::string, bool, int, float>;
 
 FieldData convert(std::string const& value, Configurations::EFieldDataType to_type)
 {
+    static std::regex s_between_rhs_regex{
+        ".*and.*", std::regex_constants::ECMAScript | std::regex_constants::icase};
+
+    if (std::regex_match(value, s_between_rhs_regex))
+    {
+        return value;
+    }
+
     switch (to_type)
     {
     case Configurations::EFieldDataType::Rid:
@@ -63,6 +74,53 @@ FieldData convert(std::string const& value, Configurations::EFieldDataType to_ty
         assert(false && "Trying to convert not supported field data type");
         break;
     }
+}
+
+FieldData sameTypeAs(FieldData const& source, std::string const& what)
+{
+    if (std::holds_alternative<bool>(source))
+    {
+        if (what == "true")
+        {
+            return true;
+        }
+        else if (what == "false")
+        {
+            return false;
+        }
+    }
+    else if (std::holds_alternative<int>(source))
+    {
+        try
+        {
+            return std::stoi(what);
+        }
+        catch (std::invalid_argument const& e)
+        {
+            throw std::runtime_error("Cannot convert '"s + what + "' to Integer; " + e.what());
+        }
+        catch (std::out_of_range const& e)
+        {
+            throw std::runtime_error("Value '"s + what + "' out of Integer range; " + e.what());
+        }
+    }
+    else if (std::holds_alternative<float>(source))
+    {
+        try
+        {
+            return std::stof(what);
+        }
+        catch (std::invalid_argument const& e)
+        {
+            throw std::runtime_error("Cannot convert '"s + what + "' to Float; " + e.what());
+        }
+        catch (std::out_of_range const& e)
+        {
+            throw std::runtime_error("Value '"s + what + "' out of Float range; " + e.what());
+        }
+    }
+
+    return what;
 }
 
 // TODO: Refactor execution paths
@@ -215,44 +273,86 @@ bool evaluateBinaryExpression(
     {
     case Common::QueryData::Primitives::EBinaryOperator::Equals: {
         return lhs == rhs;
-        break;
     }
     case Common::QueryData::Primitives::EBinaryOperator::GreaterThan: {
         return lhs > rhs;
-        break;
     }
     case Common::QueryData::Primitives::EBinaryOperator::GreaterThanEqualTo: {
         return lhs >= rhs;
-        break;
     }
     case Common::QueryData::Primitives::EBinaryOperator::LessThan: {
         return lhs < rhs;
-        break;
     }
     case Common::QueryData::Primitives::EBinaryOperator::LessThanEqualTo: {
         return lhs <= rhs;
-        break;
     }
     case Common::QueryData::Primitives::EBinaryOperator::In: {
-        // TODO: Provide implementation
-        throw std::runtime_error{
-            "[~/lunardb/src/Selenity/src/Managers/Collections/"
-            "EvaluateWhereClause.cpp:EBinaryOperator::In] Not implemented yet..."};
-        break;
+        if (!std::holds_alternative<std::string>(rhs))
+        {
+            throw std::runtime_error{"Right operand is not a string"};
+        }
+
+        if (!std::holds_alternative<std::string>(lhs))
+        {
+            throw std::runtime_error{"Left  operand is not a string"};
+        }
+
+        auto const& lhs_str = std::get<std::string>(lhs);
+        auto const& rhs_str = std::get<std::string>(rhs);
+
+        static std::string s_last_list_string{};
+        static std::vector<std::string> s_search_list{};
+
+        if (s_last_list_string != lhs_str)
+        {
+            std::string_view rhs_sv{rhs_str};
+            LunarDB::Moonlight::Implementation::QueryExtractor extractor{rhs_str};
+            s_search_list = extractor.extractList<std::string>(
+                [](std::string_view sv) { return std::string{sv}; });
+        }
+
+        return std::find_if(s_search_list.begin(), s_search_list.end(), [&lhs_str](auto const& str) {
+                   return lhs_str == str;
+               }) != s_search_list.end();
     }
     case Common::QueryData::Primitives::EBinaryOperator::Between: {
-        // TODO: Provide implementation
-        throw std::runtime_error{
-            "[~/lunardb/src/Selenity/src/Managers/Collections/"
-            "EvaluateWhereClause.cpp:EBinaryOperator::Between] Not implemented yet..."};
-        break;
+        if (!std::holds_alternative<std::string>(rhs))
+        {
+            throw std::runtime_error{"Right operand is not a string"};
+        }
+
+        auto const& rhs_str = std::get<std::string>(rhs);
+        std::string_view rhs_sv{rhs_str};
+        LunarDB::Moonlight::Implementation::QueryExtractor extractor{rhs_str};
+
+        auto const [low, and_kw, high] = extractor.extractTuple<3>();
+
+        return sameTypeAs(lhs, std::string{low}) <= lhs && lhs <= sameTypeAs(lhs, std::string{high});
     }
     case Common::QueryData::Primitives::EBinaryOperator::Like: {
-        // TODO: Provide implementation
-        throw std::runtime_error{
-            "[~/lunardb/src/Selenity/src/Managers/Collections/"
-            "EvaluateWhereClause.cpp:EBinaryOperator::Like] Not implemented yet..."};
-        break;
+        static std::string s_last_pattern_str{};
+        static std::regex s_regex{};
+
+        if (!std::holds_alternative<std::string>(rhs))
+        {
+            throw std::runtime_error{"Right operand is not a string"};
+        }
+
+        if (!std::holds_alternative<std::string>(lhs))
+        {
+            throw std::runtime_error{"Left  operand is not a string"};
+        }
+
+        auto const& lhs_str = std::get<std::string>(lhs);
+        auto const& rhs_str = std::get<std::string>(rhs);
+
+        if (s_last_pattern_str != rhs_str)
+        {
+            s_last_pattern_str = rhs_str;
+            s_regex = std::regex{s_last_pattern_str, std::regex_constants::ECMAScript};
+        }
+
+        return std::regex_match(lhs_str, s_regex);
     }
     case Common::QueryData::Primitives::EBinaryOperator::None:
     default:

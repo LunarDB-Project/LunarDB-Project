@@ -54,7 +54,6 @@ void DatabaseManager::createCollection(
     Common::QueryData::Primitives::EStructureType collection_type,
     std::vector<Common::QueryData::Create::Single::Binding> const& bindings)
 {
-    // TODO: WriteAheadLog
     if (m_catalog.name_to_config.contains(name))
     {
         throw std::runtime_error("Collection already exists");
@@ -100,13 +99,21 @@ void DatabaseManager::createCollection(
     saveConfigs();
 }
 
-void DatabaseManager::dropCollection(std::string const& name)
+void DatabaseManager::dropCollection(std::string const& name, bool cascade)
 {
-    // TODO: WriteAheadLog
     auto const catalog_entry_it{m_catalog.name_to_config.find(name)};
     if (catalog_entry_it == m_catalog.name_to_config.end())
     {
-        throw std::runtime_error("Collection does not exist");
+        throw std::runtime_error(LunarDB::Common::CppExtensions::StringUtils::stringify(
+            "Collection '", name, "' does not exist"));
+    }
+
+    if (cascade)
+    {
+        for (auto const& [_, collection_uid] : catalog_entry_it->second->schema.bindings)
+        {
+            dropCollection(std::string{getCollection(collection_uid)->getName()}, true);
+        }
     }
 
     std::filesystem::remove_all(catalog_entry_it->second->home);
@@ -122,7 +129,8 @@ std::shared_ptr<Collections::AbstractManager> DatabaseManager::getCollection(std
     auto const catalog_entry_it = m_catalog.name_to_config.find(name);
     if (catalog_entry_it == m_catalog.name_to_config.end())
     {
-        throw std::runtime_error("Collection does not exist");
+        throw std::runtime_error(LunarDB::Common::CppExtensions::StringUtils::stringify(
+            "Collection '", name, "' does not exist"));
     }
 
     assert(
@@ -149,18 +157,25 @@ std::shared_ptr<Collections::AbstractManager> DatabaseManager::getCollection(
 void DatabaseManager::rebind(
     std::string const& collection_name,
     std::string const& field_name,
-    std::string const& to_collection_name)
+    std::string const& to_collection_name,
+    bool clean)
 {
-    auto& collection_config{getCollection(collection_name)->getConfig()};
+    auto collection_config{getCollection(collection_name)->getConfig()};
+
+    if (collection_config->collection_type !=
+        LunarDB::Selenity::API::Managers::Configurations::Implementation::CollectionConfiguration::ECollectionType::Table)
+    {
+        throw std::runtime_error{"Rebind is designed for tables only"};
+    }
+
     auto& bindings{collection_config->schema.bindings};
-    auto& schema{collection_config->schema};
+    auto& fields{collection_config->schema.fields};
 
-    auto field_it =
-        std::find_if(schema.fields.begin(), schema.fields.end(), [&field_name](auto const& field) {
-            return field.name == field_name;
-        });
+    auto field_it = std::find_if(fields.begin(), fields.end(), [&field_name](auto const& field) {
+        return field.name == field_name;
+    });
 
-    if (field_it == schema.fields.end())
+    if (field_it == fields.end())
     {
         throw std::runtime_error("Field does not exist");
     }
@@ -175,6 +190,11 @@ void DatabaseManager::rebind(
     auto const& to_collection_uid{getCollection(to_collection_name)->getUID()};
     if (binding_it != bindings.end())
     {
+        std::vector<std::string> collections{};
+        if (clean)
+        {
+            dropCollection(std::string{getCollection(binding_it->second)->getName()}, true);
+        }
         bindings.erase(binding_it);
     }
     std::ignore = bindings.emplace(field_name, to_collection_uid);

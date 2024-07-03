@@ -90,12 +90,6 @@ struct DeleteTransactionData : public TransactionData
     LUNARDB_PROVIDE_STRUCT_DEFAULT_LIFECYCLE(DeleteTransactionData);
 };
 
-struct CommitTransactionData : public TransactionData
-{
-    std::string toString() const override;
-    LUNARDB_PROVIDE_STRUCT_DEFAULT_LIFECYCLE(CommitTransactionData);
-};
-
 struct RollbackTransactionData : public TransactionData
 {
     std::string toString() const override;
@@ -104,6 +98,7 @@ struct RollbackTransactionData : public TransactionData
 
 struct SavePointTransactionData : public TransactionData
 {
+    std::string hash{};
     std::string toString() const override;
     LUNARDB_PROVIDE_STRUCT_DEFAULT_LIFECYCLE(SavePointTransactionData);
 };

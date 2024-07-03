@@ -141,8 +141,6 @@ TEST(Astral_InsertExecutorTest, document_insert)
         EXPECT_EQ(inserted.salary, selected.salary);
         EXPECT_EQ(inserted.birth_date, selected.birth_date);
     }
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Astral_InsertExecutorTest, table_insert)
@@ -274,8 +272,6 @@ TEST(Astral_InsertExecutorTest, table_insert)
         EXPECT_EQ(inserted.salary, selected.salary);
         EXPECT_EQ(inserted.birth_date, selected.birth_date);
     }
-
-    auto const dummy_breakpoint{404};
 }
 
 } // namespace LunarDB::Astral::Tests

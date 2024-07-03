@@ -11,8 +11,6 @@ namespace LunarDB::Astral::Tests {
 TEST(Astral_AuthExecutorTest, auth)
 {
     LunarDB::Common::Testing::LunarTestGuard _{};
-
-    // TODO: Provide implementation
 }
 
 } // namespace LunarDB::Astral::Tests

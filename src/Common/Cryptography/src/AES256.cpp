@@ -1,8 +1,10 @@
-#include "LunarDB/Common/Cryptography/AES256.hpp"
-
+#include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+
+#include "LunarDB/Common/Cryptography/AES256.hpp"
+#include "LunarDB/Selenity/SystemCatalog.hpp"
 
 namespace LunarDB::Common::Cryptography {
 
@@ -11,14 +13,15 @@ LUNAR_SINGLETON_INIT_IMPL(AES256)
     OpenSSL_add_all_algorithms();
     ERR_load_CRYPTO_strings();
 
-    m_key.resize(32); // 256-bit key
-    m_iv.resize(16); // 128-bit IV
+    auto const& system_configuration{
+        LunarDB::Selenity::API::SystemCatalog::Instance().getSystemConfiguration()};
 
-    // TODO: Read key from file
-    if (!RAND_bytes(m_key.data(), m_key.size()) || !RAND_bytes(m_iv.data(), m_iv.size()))
-    {
-        handleErrors();
-    }
+    auto const to_byte_array = [](std::string_view str) -> ByteArray {
+        return ByteArray{str.begin(), str.end()};
+    };
+
+    m_key = to_byte_array(system_configuration.encryption.key);
+    m_iv = to_byte_array(system_configuration.encryption.iv);
 }
 
 AES256::~AES256()
@@ -29,8 +32,7 @@ AES256::~AES256()
 
 void AES256::handleErrors()
 {
-    ERR_print_errors_fp(stderr);
-    // TODO: Log critical error
+    // ERR_print_errors_fp(stderr);
 }
 
 AES256::ByteArray AES256::encrypt(ByteArray const& plaintext)
@@ -45,6 +47,8 @@ AES256::ByteArray AES256::encrypt(ByteArray const& plaintext)
     {
         handleErrors();
     }
+
+    EVP_CIPHER_CTX_set_padding(ctx, 1);
 
     if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, m_key.data(), m_iv.data()))
     {
@@ -82,6 +86,8 @@ AES256::ByteArray AES256::decrypt(ByteArray const& ciphertext)
     {
         handleErrors();
     }
+
+    EVP_CIPHER_CTX_set_padding(ctx, 1);
 
     if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, m_key.data(), m_iv.data()))
     {

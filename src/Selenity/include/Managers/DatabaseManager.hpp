@@ -37,12 +37,13 @@ public: // public API
         Common::QueryData::Primitives::EStructureType type,
         std::vector<Common::QueryData::Create::Single::Binding> const& bindings);
 
-    void dropCollection(std::string const& name);
+    void dropCollection(std::string const& name, bool cascade);
 
     void rebind(
         std::string const& collection_name,
         std::string const& field_name,
-        std::string const& to_collection_name);
+        std::string const& to_collection_name,
+        bool clean);
 
     Common::CppExtensions::UniqueID const& getUID() const;
     std::string_view getName() const;

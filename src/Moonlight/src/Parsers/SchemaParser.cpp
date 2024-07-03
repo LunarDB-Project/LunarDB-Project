@@ -15,7 +15,6 @@ namespace {
 
 constexpr auto c_query_prefix{"schema"};
 
-// TODO: Add types validation
 Common::QueryData::Schema::Field parseField(std::string_view str)
 {
     using namespace std::literals;

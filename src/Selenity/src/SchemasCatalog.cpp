@@ -38,7 +38,6 @@ std::filesystem::path SchemasCatalog::getSchemaFilePath(std::string schema_name)
 
 void SchemasCatalog::saveSchemaToDisk(Common::QueryData::Schema const& schema) const
 {
-    // TODO: WriteAheadLog
     std::ofstream schema_file(getSchemaFilePath(schema.name), std::ios::trunc | std::ios::binary);
     Common::CppExtensions::BinaryIO::Serializer::serialize(schema_file, schema);
     schema_file.close();

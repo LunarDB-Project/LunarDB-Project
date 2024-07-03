@@ -20,7 +20,6 @@ std::shared_ptr<AbstractManager> AbstractManager::Factory::create(
         return std::make_shared<Managers::Collections::DocumentManager>(config);
     case Configurations::CollectionConfiguration::ECollectionType::Undefined:
     default:
-        // TODO: Log error
         throw std::runtime_error("Undefined collection type");
     }
 }
@@ -35,7 +34,7 @@ std::string_view AbstractManager::getName() const
     return m_collection_config->name;
 }
 
-std::shared_ptr<Configurations::CollectionConfiguration> const& AbstractManager::getConfig() const
+std::shared_ptr<Configurations::CollectionConfiguration> AbstractManager::getConfig()
 {
     return m_collection_config;
 }

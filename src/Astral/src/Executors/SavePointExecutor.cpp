@@ -10,11 +10,9 @@ void SavePoint::execute(Moonlight::API::ParsedQuery const& parsed_query)
 {
     CLOG_VERBOSE("SavePoint::execute()");
 
-    // TODO: Provide implementation
     auto const& query = parsed_query.get<Common::QueryData::SavePoint>();
 
-    LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(
-        LunarDB::BrightMoon::API::Transactions::SavePointTransactionData{});
+    LunarDB::BrightMoon::API::WriteAheadLogger::Instance().savepoint(query.hash);
 }
 
 } // namespace LunarDB::Astral::Implementation

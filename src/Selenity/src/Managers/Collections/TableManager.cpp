@@ -60,10 +60,8 @@ void update(
             case Configurations::EFieldDataType::Rid:
                 throw std::runtime_error("Cannot set reserved _rid field");
             case Configurations::EFieldDataType::DateTime:
-                // TODO: Provide implementation
-                throw std::runtime_error{
-                    "[~/lunardb/src/Selenity/src/Managers/Collections/"
-                    "TableManager.cpp:UpdateDateTime] Not implemented yet..."};
+                json[modify.field] = modify.expression;
+                break;
             case Configurations::EFieldDataType::String:
                 json[modify.field] = modify.expression;
                 break;
@@ -539,8 +537,8 @@ void TableManager::deleteWhere(Common::QueryData::WhereClause const& where)
 // TODO: Refactor
 void TableManager::overwrite(nlohmann::json& updated_json)
 {
-    std::string const& rid{updated_json["_rid"]};
-    auto documents_path{getDataHomePath()};
+    std::string const& overwrited_rid{updated_json["_rid"]};
+    auto const documents_path{getDataHomePath()};
 
     std::uint64_t entries_count{0};
     auto const file_path{getDataHomePath() / "metadata.ldb"};
@@ -562,20 +560,13 @@ void TableManager::overwrite(nlohmann::json& updated_json)
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
                 collection_entry_ptr->data = nlohmann::json::from_bson(bson);
-                if (collection_entry_ptr->data["_del"] == 1 || collection_entry_ptr->data["_rid"] != rid)
+                if (collection_entry_ptr->data["_del"] == 1 ||
+                    collection_entry_ptr->data["_rid"] != overwrited_rid)
                 {
                     continue;
                 }
 
-                LunarDB::BrightMoon::API::Transactions::UpdateTransactionData wal_data{};
-                wal_data.database =
-                    LunarDB::Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->getName();
-                wal_data.collection = m_collection_config->name;
-                wal_data.old_json = collection_entry_ptr->getJSON().dump();
-                LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(wal_data);
-
                 auto database = Selenity::API::SystemCatalog::Instance().getDatabaseInUse();
-                auto& entry_json = collection_entry_ptr->getJSON();
 
                 std::unordered_map<std::string, std::string> rids{};
                 for (auto const& [field, collection_uid] : m_collection_config->schema.bindings)
@@ -584,9 +575,16 @@ void TableManager::overwrite(nlohmann::json& updated_json)
                         std::reinterpret_pointer_cast<LunarDB::Selenity::API::Managers::Collections::TableManager>(
                             database->getCollection(collection_uid));
                     nlohmann::json temp_json{};
-                    collection->selectEntry(rid, temp_json);
+                    collection->selectEntry(overwrited_rid, temp_json);
                     rids.emplace(field, temp_json["_rid"]);
                 }
+
+                LunarDB::BrightMoon::API::Transactions::UpdateTransactionData wal_data{};
+                wal_data.database =
+                    LunarDB::Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->getName();
+                wal_data.collection = m_collection_config->name;
+                wal_data.old_json = collection_entry_ptr->getJSON().dump();
+                LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(wal_data);
 
                 for (auto const& [field, rid] : rids)
                 {
@@ -608,6 +606,8 @@ void TableManager::overwrite(nlohmann::json& updated_json)
                 Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
                 table_file.seekg(current_pos, std::ios::beg);
+
+                break;
             }
             table_file.close();
         }
@@ -668,11 +668,17 @@ void TableManager::update(Common::QueryData::Update const& config)
                     collection_entry_ptr.reset(dynamic_cast<TableManager::CollectionEntry*>(
                         icollection_entry_ptr.release()));
 
+                    auto original = collection_entry_ptr->getJSON();
+                    for (auto const& [field, rid] : rids)
+                    {
+                        original[field] = rid;
+                    }
+
                     LunarDB::BrightMoon::API::Transactions::UpdateTransactionData wal_data{};
                     wal_data.database =
                         LunarDB::Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->getName();
                     wal_data.collection = m_collection_config->name;
-                    wal_data.old_json = collection_entry_ptr->getJSON().dump();
+                    wal_data.old_json = original.dump();
                     LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(wal_data);
 
                     Collections::update(
@@ -711,15 +717,17 @@ void TableManager::update(Common::QueryData::Update const& config)
 
 void TableManager::undoInsert(nlohmann::json json, bool is_last_call)
 {
-    CLOG_VERBOSE("TableManager::undoInsert(): begin");
+    CLOG_VERBOSE(
+        "TableManager::undoInsert(): table:", m_collection_config->name, "-> begin, is_last_call:", is_last_call);
 
     static std::unordered_set<std::string> s_inserted_rids{};
 
-    s_inserted_rids.emplace(json["_rid"]);
+    std::ignore = s_inserted_rids.emplace(json["_rid"]);
     if (!is_last_call)
     {
         return;
     }
+    CLOG_VERBOSE("TableManager::undoInsert(): last call, undo size:", s_inserted_rids.size());
 
     auto documents_path{getDataHomePath()};
     if (!std::filesystem::exists(documents_path) || !std::filesystem::is_directory(documents_path))
@@ -732,7 +740,7 @@ void TableManager::undoInsert(nlohmann::json json, bool is_last_call)
     auto const metadata_file_path{getDataHomePath() / "metadata.ldb"};
     std::fstream metadata_file{};
     metadata_file.open(metadata_file_path, std::ios::in | std::ios::binary);
-
+    std::size_t lost_count{0};
     if (metadata_file.is_open())
     {
         Common::CppExtensions::BinaryIO::Deserializer::deserialize(metadata_file, entries_count);
@@ -749,44 +757,53 @@ void TableManager::undoInsert(nlohmann::json json, bool is_last_call)
             {
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
-                auto json_entry = nlohmann::json::from_bson(bson);
-
-                if (auto const rid_it = s_inserted_rids.find(json_entry["_rid"]);
-                    rid_it != s_inserted_rids.end())
+                try
                 {
-                    auto const rid{*rid_it};
-                    CLOG_INFO("TableManager::undoInsert(): RID:", rid);
-                    json_entry["_del"] = "1";
-                    bson = nlohmann::json::to_bson(json_entry);
+                    auto json_entry = nlohmann::json::from_bson(bson);
+                    CLOG_VERBOSE("TableManager::undoInsert(): index:", _, "json:", json_entry.dump());
 
-                    auto const current_pos = table_file.tellg();
+                    if (auto const rid_it = s_inserted_rids.find(json_entry["_rid"]);
+                        rid_it != s_inserted_rids.end())
+                    {
+                        auto const rid{*rid_it};
+                        CLOG_INFO("TableManager::undoInsert(): start RID:", rid);
+                        json_entry["_del"] = "1";
+                        bson = nlohmann::json::to_bson(json_entry);
 
-                    table_file.seekp(
-                        -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
-                        std::ios::cur);
-                    Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
+                        auto const current_pos = table_file.tellg();
 
-                    table_file.seekg(current_pos, std::ios::beg);
+                        table_file.seekp(
+                            -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
+                            std::ios::cur);
+                        Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
-                    undo_number++;
-                    CLOG_INFO(
-                        "TableManager::undoInsert(): ",
-                        undo_number,
-                        "out of",
-                        undo_size,
-                        "changes undone");
-                    s_inserted_rids.erase(rid_it);
+                        table_file.seekg(current_pos, std::ios::beg);
 
-                    CLOG_INFO("TableManager::undoInsert(): finished successfully RID:", rid);
+                        undo_number++;
+                        CLOG_INFO(
+                            "TableManager::undoInsert(): end  RID:",
+                            rid,
+                            "->",
+                            undo_number,
+                            "out of",
+                            undo_size,
+                            "changes undone");
+                        s_inserted_rids.erase(rid_it);
+                    }
+                }
+                catch (std::exception const& e)
+                {
+                    ++lost_count;
                 }
             }
-            table_file.close();
+            metadata_file.open(metadata_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
+            Common::CppExtensions::BinaryIO::Serializer::serialize(
+                metadata_file, entries_count - lost_count);
         }
         else
         {
             CLOG_ERROR("TableManager::undoInsert(): Could not open data file", table_file_path);
         }
-        metadata_file.close();
     }
     else
     {
@@ -838,34 +855,40 @@ void TableManager::undoUpdate(nlohmann::json json, bool is_last_call)
             {
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
-                auto json_data = nlohmann::json::from_bson(bson);
-
-                if (auto const rid_it = s_updated_rids.find(json_data["_rid"]);
-                    rid_it != s_updated_rids.end())
+                try
                 {
-                    auto const rid{rid_it->first};
-                    CLOG_INFO("TableManager::undoUpdate(): RID:", rid);
-                    bson = nlohmann::json::to_bson(rid_it->second);
+                    auto json_data = nlohmann::json::from_bson(bson);
 
-                    auto const current_pos = table_file.tellg();
+                    if (auto const rid_it = s_updated_rids.find(json_data["_rid"]);
+                        rid_it != s_updated_rids.end())
+                    {
+                        auto const rid{rid_it->first};
+                        CLOG_INFO("TableManager::undoUpdate(): RID:", rid);
+                        bson = nlohmann::json::to_bson(rid_it->second);
 
-                    table_file.seekp(
-                        -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
-                        std::ios::cur);
-                    Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
+                        auto const current_pos = table_file.tellg();
 
-                    table_file.seekg(current_pos, std::ios::beg);
+                        table_file.seekp(
+                            -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
+                            std::ios::cur);
+                        Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
-                    undo_number++;
-                    CLOG_INFO(
-                        "TableManager::undoUpdate(): ",
-                        undo_number,
-                        "out of",
-                        undo_size,
-                        "changes undone");
-                    s_updated_rids.erase(rid_it);
+                        table_file.seekg(current_pos, std::ios::beg);
 
-                    CLOG_INFO("TableManager::undoUpdate(): finished successfully RID:", rid);
+                        undo_number++;
+                        CLOG_INFO(
+                            "TableManager::undoInsert(): done RID:",
+                            rid,
+                            "->",
+                            undo_number,
+                            "out of",
+                            undo_size,
+                            "changes undone");
+                        s_updated_rids.erase(rid_it);
+                    }
+                }
+                catch (std::exception const& e)
+                {
                 }
             }
             table_file.close();
@@ -925,35 +948,41 @@ void TableManager::undoDelete(nlohmann::json json, bool is_last_call)
             {
                 std::vector<std::uint8_t> bson{};
                 Common::CppExtensions::BinaryIO::Deserializer::deserialize(table_file, bson);
-                auto json_data = nlohmann::json::from_bson(bson);
-
-                if (auto const rid_it = s_deleted_rids.find(json_data["_rid"]);
-                    rid_it != s_deleted_rids.end())
+                try
                 {
-                    auto const rid{*rid_it};
-                    CLOG_INFO("TableManager::undoDelete(): RID:", rid);
-                    json_data["_del"] = "0";
-                    bson = nlohmann::json::to_bson(json_data);
+                    auto json_data = nlohmann::json::from_bson(bson);
 
-                    auto const current_pos = table_file.tellg();
+                    if (auto const rid_it = s_deleted_rids.find(json_data["_rid"]);
+                        rid_it != s_deleted_rids.end())
+                    {
+                        auto const rid{*rid_it};
+                        CLOG_INFO("TableManager::undoDelete(): RID:", rid);
+                        json_data["_del"] = "0";
+                        bson = nlohmann::json::to_bson(json_data);
 
-                    table_file.seekp(
-                        -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
-                        std::ios::cur);
-                    Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
+                        auto const current_pos = table_file.tellg();
 
-                    table_file.seekg(current_pos, std::ios::beg);
+                        table_file.seekp(
+                            -(static_cast<std::uint64_t>(bson.size()) + sizeof(std::size_t)),
+                            std::ios::cur);
+                        Common::CppExtensions::BinaryIO::Serializer::serialize(table_file, bson);
 
-                    undo_number++;
-                    CLOG_INFO(
-                        "TableManager::undoDelete(): ",
-                        undo_number,
-                        "out of",
-                        undo_size,
-                        "changes undone");
-                    s_deleted_rids.erase(rid_it);
+                        table_file.seekg(current_pos, std::ios::beg);
 
-                    CLOG_INFO("TableManager::undoDelete(): finished successfully RID:", rid);
+                        undo_number++;
+                        CLOG_INFO(
+                            "TableManager::undoInsert(): done RID:",
+                            rid,
+                            "->",
+                            undo_number,
+                            "out of",
+                            undo_size,
+                            "changes undone");
+                        s_deleted_rids.erase(rid_it);
+                    }
+                }
+                catch (std::exception const& e)
+                {
                 }
             }
             table_file.close();

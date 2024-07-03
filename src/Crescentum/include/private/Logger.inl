@@ -57,6 +57,7 @@ void Logger::log(ELogLevel level, ELunarModule module, Args&&... args)
     ss << lvl_color << std::right << std::setw(15) << LunarModule::toString(module) << c_sep_color
        << " | ";
     ss << lvl_color;
+    auto dummy = ss.str();
     ((ss << std::forward<Args>(args) << " "), ...);
     // ss << '\n';
 

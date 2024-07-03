@@ -96,7 +96,14 @@ void handleQuery(
 
                                 if (std::getline(iss, token, '.'))
                                 {
-                                    return follow_path(json[token], follow_path);
+                                    if (json.find(token) != json.end())
+                                    {
+                                        return follow_path(json[token], follow_path);
+                                    }
+                                    else
+                                    {
+                                        return "NULL";
+                                    }
                                 }
 
                                 return json;
@@ -106,7 +113,14 @@ void handleQuery(
                         }
                         else
                         {
-                            out[field] = obj_json[field];
+                            if (obj_json.find(field) != obj_json.end())
+                            {
+                                out[field] = obj_json[field];
+                            }
+                            else
+                            {
+                                out[field] = "NULL";
+                            }
                         }
                     }
 

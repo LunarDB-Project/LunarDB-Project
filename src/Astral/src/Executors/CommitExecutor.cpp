@@ -10,11 +10,7 @@ void Commit::execute(Moonlight::API::ParsedQuery const& parsed_query)
 {
     CLOG_VERBOSE("Commit::execute()");
 
-    // TODO: Provide implementation
-    auto const& query = parsed_query.get<Common::QueryData::Commit>();
-
-    LunarDB::BrightMoon::API::WriteAheadLogger::Instance().log(
-        LunarDB::BrightMoon::API::Transactions::CommitTransactionData{});
+    LunarDB::BrightMoon::API::WriteAheadLogger::Instance().commit();
 }
 
 } // namespace LunarDB::Astral::Implementation

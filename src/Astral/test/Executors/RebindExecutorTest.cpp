@@ -43,7 +43,7 @@ TEST(Astral_RebindExecutorTest, rebind)
     ASSERT_NO_THROW({ schemas_catalog.getSchema(c_schema1.name); });
 
     auto const c_collection_name1{"SomeCollection1"s};
-    auto const c_structure_type1{Common::QueryData::Primitives::EStructureType::Collection};
+    auto const c_structure_type1{Common::QueryData::Primitives::EStructureType::Table};
     auto const c_bindings1{std::vector<Common::QueryData::Create::Single::Binding>{}};
 
     ASSERT_NO_THROW({
@@ -63,7 +63,7 @@ TEST(Astral_RebindExecutorTest, rebind)
     ASSERT_NO_THROW({ schemas_catalog.getSchema(c_schema2.name); });
 
     auto const c_collection_name2{"SomeCollection2"s};
-    auto const c_structure_type2{Common::QueryData::Primitives::EStructureType::Collection};
+    auto const c_structure_type2{Common::QueryData::Primitives::EStructureType::Table};
     auto const c_bindings2{std::vector<Common::QueryData::Create::Single::Binding>{}};
 
     ASSERT_NO_THROW({

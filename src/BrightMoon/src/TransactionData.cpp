@@ -76,15 +76,6 @@ std::string DeleteTransactionData::toString() const
     return oss.str();
 }
 
-std::string CommitTransactionData::toString() const
-{
-    std::ostringstream oss{};
-
-    oss << "Commit";
-
-    return oss.str();
-}
-
 std::string RollbackTransactionData::toString() const
 {
     std::ostringstream oss{};
@@ -98,7 +89,7 @@ std::string SavePointTransactionData::toString() const
 {
     std::ostringstream oss{};
 
-    oss << "SavePoint";
+    oss << "SavePoint " << hash;
 
     return oss.str();
 }

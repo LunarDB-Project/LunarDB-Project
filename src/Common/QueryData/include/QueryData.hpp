@@ -25,7 +25,7 @@ struct Create
         std::string structure_name;
         std::string schema_name;
         std::vector<Binding> bindings;
-        bool blended;
+        bool blended{false};
     };
 
     struct Multiple

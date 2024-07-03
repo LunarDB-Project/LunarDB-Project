@@ -110,7 +110,6 @@ CollectionConfiguration::Schema::Schema(
     this->bindings.reserve(bindings.size());
     for (auto const binding : bindings)
     {
-        // TODO: Create collection if it does not exist???? -> table only
         this->bindings.emplace(
             binding.field, catalog.getDatabaseInUse()->getCollection(binding.table)->getUID());
     }

@@ -37,7 +37,7 @@ public: // CollectionEntry
     };
 
 public: // public API
-    std::shared_ptr<Configurations::CollectionConfiguration> const& getConfig() const;
+    std::shared_ptr<Configurations::CollectionConfiguration> getConfig();
     Common::CppExtensions::UniqueID const& getUID() const;
     std::string_view getName() const;
 

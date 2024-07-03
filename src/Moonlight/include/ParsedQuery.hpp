@@ -36,7 +36,6 @@ public: // helpers
 private: // fields;
     Common::QueryData::Primitives::EQueryType m_type;
 
-    // TODO: Refactor auth;
     std::variant<
         Common::QueryData::Create,
         Common::QueryData::Drop,

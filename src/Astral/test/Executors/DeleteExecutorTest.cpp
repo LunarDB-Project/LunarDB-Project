@@ -169,8 +169,6 @@ TEST(Astral_DeleteExecutorTest, document_insert_delete)
         }
     }
     EXPECT_EQ(entries_count, 0);
-
-    auto const dummy_breakpoint{404};
 }
 
 TEST(Astral_DeleteExecutorTest, table_insert_delete)
@@ -331,8 +329,6 @@ TEST(Astral_DeleteExecutorTest, table_insert_delete)
         }
     }
     EXPECT_EQ(entries_count, 2);
-
-    auto const dummy_breakpoint{404};
 }
 
 } // namespace LunarDB::Astral::Tests

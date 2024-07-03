@@ -10,6 +10,7 @@
 
 #include "Common.hpp"
 #include "LunarDB/BrightMoon/WriteAheadLogger.hpp"
+#include "LunarDB/Common/CppExtensions/StringUtils.hpp"
 #include "LunarDB/Crescentum/Logger.hpp"
 #include "LunarDB/Moonlight/QueryExtractor.hpp"
 #include "LunarDB/Selenity/Managers/Collections/DocumentManager.hpp"
@@ -101,10 +102,8 @@ void update(
             case Configurations::EFieldDataType::Rid:
                 throw std::runtime_error("Cannot set reserved _rid field");
             case Configurations::EFieldDataType::DateTime:
-                // TODO: Provide implementation
-                throw std::runtime_error{
-                    "[~/lunardb/src/Selenity/src/Managers/Collections/"
-                    "DocumentManager.cpp:UpdateDateTime] Not implemented yet..."};
+                json[modify.field] = modify.expression;
+                break;
             case Configurations::EFieldDataType::String:
                 json[modify.field] = modify.expression;
                 break;
@@ -249,7 +248,9 @@ std::vector<std::unique_ptr<AbstractManager::ICollectionEntry>> DocumentManager:
         }
         else
         {
-            // TODO: Log error
+            CLOG_ERROR("DocumentManager::select() Could not open file", entry.path());
+            throw std::runtime_error{LunarDB::Common::CppExtensions::StringUtils::stringify(
+                "Could not open file", entry.path())};
         }
     }
 
@@ -268,12 +269,13 @@ nlohmann::json& DocumentManager::CollectionEntry::getJSON()
 
 void DocumentManager::deleteWhere(Common::QueryData::WhereClause const& where)
 {
-    auto documents_path{getDataHomePath()};
+    auto const documents_path{getDataHomePath()};
 
     if (!std::filesystem::exists(documents_path) || !std::filesystem::is_directory(documents_path))
     {
-        // TODO: Log warning
-        return;
+        CLOG_ERROR("DocumentManager::deleteWhere(): Could not open", documents_path);
+        throw std::runtime_error{LunarDB::Common::CppExtensions::StringUtils::stringify(
+            "Could not open", documents_path)};
     }
 
     for (auto const& entry : std::filesystem::directory_iterator(documents_path))
@@ -308,7 +310,9 @@ void DocumentManager::deleteWhere(Common::QueryData::WhereClause const& where)
         }
         else
         {
-            // TODO: Log error
+            CLOG_ERROR("DocumentManager::deleteWhere(): Could not open", entry.path());
+            throw std::runtime_error{LunarDB::Common::CppExtensions::StringUtils::stringify(
+                "Could not open", entry.path())};
         }
     }
 }
@@ -319,8 +323,9 @@ void DocumentManager::update(Common::QueryData::Update const& config)
 
     if (!std::filesystem::exists(documents_path) || !std::filesystem::is_directory(documents_path))
     {
-        // TODO: Log warning
-        return;
+        CLOG_ERROR("DocumentManager::update(): Could not open", documents_path);
+        throw std::runtime_error{LunarDB::Common::CppExtensions::StringUtils::stringify(
+            "Could not open", documents_path)};
     }
 
     for (auto const& entry : std::filesystem::directory_iterator(documents_path))
@@ -370,13 +375,17 @@ void DocumentManager::update(Common::QueryData::Update const& config)
                 }
                 else
                 {
-                    // TODO: Log error
+                    CLOG_ERROR("DocumentManager::update(): Could not open", entry.path());
+                    throw std::runtime_error{LunarDB::Common::CppExtensions::StringUtils::stringify(
+                        "Could not open", entry.path())};
                 }
             }
         }
         else
         {
-            // TODO: Log error
+            CLOG_ERROR("DocumentManager::update(): Could not open", entry.path());
+            throw std::runtime_error{LunarDB::Common::CppExtensions::StringUtils::stringify(
+                "Could not open", entry.path())};
         }
     }
 }

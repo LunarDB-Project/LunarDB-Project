@@ -1,5 +1,6 @@
 #include "Common.hpp"
 
+#include "LunarDB/Common/CppExtensions/StringUtils.hpp"
 #include "LunarDB/Selenity/Managers/Collections/DocumentManager.hpp"
 #include "LunarDB/Selenity/Managers/Collections/TableManager.hpp"
 #include "LunarDB/Selenity/SystemCatalog.hpp"
@@ -87,10 +88,15 @@ void jsonifyEntry(
     }
     else if (std::holds_alternative<Object>(in_entry))
     {
-        auto const entry_collection_name{collection_name + "_" + entry_config->name};
+        auto const entry_collection_uid_it = collection_schema.bindings.find(entry_config->name);
+        if (entry_collection_uid_it == collection_schema.bindings.end())
+        {
+            throw std::runtime_error{LunarDB::Common::CppExtensions::StringUtils::stringify(
+                "Could not access collection of '", entry_config->name, "'")};
+        }
 
         auto collection_ptr{Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->getCollection(
-            entry_collection_name)};
+            entry_collection_uid_it->second)};
 
         switch (collection_type)
         {
@@ -106,7 +112,7 @@ void jsonifyEntry(
             jsonify(
                 std::get<Object>(in_entry),
                 out_json,
-                entry_collection_name,
+                std::string{collection_ptr->getName()},
                 collection_ptr->getConfig()->schema,
                 collection_type);
             break;
@@ -169,7 +175,6 @@ void jsonify(
     Configurations::CollectionConfiguration::Schema& collection_schema,
     Common::QueryData::Primitives::EStructureType const collection_type)
 {
-    // TODO: Add new field when jsonifying collections.
     switch (collection_type)
     {
     case Common::QueryData::Primitives::EStructureType::Table: {

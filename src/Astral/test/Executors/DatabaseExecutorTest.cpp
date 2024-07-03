@@ -9,7 +9,7 @@ using namespace std::string_literals;
 
 namespace LunarDB::Astral::Tests {
 
-TEST(Astral_DatabaseExecutorTest, create_drop_use)
+TEST(Astral_DatabaseExecutorTest, create_drop_use_backup)
 {
     Common::Testing::LunarTestGuard _{};
 
@@ -39,21 +39,33 @@ TEST(Astral_DatabaseExecutorTest, create_drop_use)
     Astral::Implementation::Database::execute(parsed_query);
     EXPECT_TRUE(catalog.usingDatabase());
 
-    // 4. use non existing database
+    // 4. backup database
+    auto const c_backup_path{LUNAR_TESTING_HOME_PATH "/backup"};
+    parsed_query.get<Common::QueryData::Database>() =
+        Common::QueryData::Init::DatabaseInit{}
+            .name(c_database_name)
+            .operation_type(Common::QueryData::Primitives::EDatabaseOperationType::Backup)
+            .backup_path(c_backup_path);
+    EXPECT_NO_THROW({ Astral::Implementation::Database::execute(parsed_query); });
+    ASSERT_TRUE(std::filesystem::exists(c_backup_path));
+    EXPECT_TRUE(std::filesystem::is_directory(c_backup_path));
+    EXPECT_THROW({ Astral::Implementation::Database::execute(parsed_query); }, std::runtime_error);
+
+    // 5. use non existing database
     parsed_query.get<Common::QueryData::Database>() =
         Common::QueryData::Init::DatabaseInit{}
             .name("some_non_existing_database")
             .operation_type(Common::QueryData::Primitives::EDatabaseOperationType::Use);
     EXPECT_THROW({ Astral::Implementation::Database::execute(parsed_query); }, std::runtime_error);
 
-    // 5. load catalog from disk, check if configs saved
+    // 6. load catalog from disk, check if configs saved
     parsed_query.get<Common::QueryData::Database>() =
         Common::QueryData::Init::DatabaseInit{}
             .name(c_database_name)
             .operation_type(Common::QueryData::Primitives::EDatabaseOperationType::Create);
     EXPECT_THROW({ Astral::Implementation::Database::execute(parsed_query); }, std::runtime_error);
 
-    // 6. drop database
+    // 7. drop database
     parsed_query.get<Common::QueryData::Database>() =
         Common::QueryData::Init::DatabaseInit{}
             .name(c_database_name)

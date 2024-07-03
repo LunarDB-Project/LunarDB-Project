@@ -13,16 +13,10 @@ void Rebind::execute(Moonlight::API::ParsedQuery const& parsed_query)
 
     auto const& query = parsed_query.get<Common::QueryData::Rebind>();
 
-    if (static_cast<bool>(query.clean))
-    {
-        // TODO: Provide implementation
-        // throw std::runtime_error{
-        //     "[~/lunardb/src/Astral/src/Executors/RebindExecutor.cpp:clean_rebind] Not implemented
-        //     " "yet..."};
-    }
+    bool clean = static_cast<bool>(query.clean) ? *query.clean : false;
 
     Selenity::API::SystemCatalog::Instance().getDatabaseInUse()->rebind(
-        query.structure_name, query.field, query.bind_structure_name);
+        query.structure_name, query.field, query.bind_structure_name, clean);
 }
 
 } // namespace LunarDB::Astral::Implementation
