@@ -34,8 +34,8 @@
     </p>
     <h3>💡 Capabilities and Related Projects</h3>
     <p>
-        <a href=''>🌙 Moonlight</a></br>
-        <a href=''>💻 CLI / 🌐 Server</a></br>
+        <a href='https://github.com/TheAncientOwl/lunardb/blob/main/Moonlight.md'>🌙 Moonlight</a></br>
+        <a href='https://github.com/TheAncientOwl/lunardb/blob/main/Products.md'>💻 CLI / 🌐 Server</a></br>
         <a href='https://github.com/TheAncientOwl/lunardb-js'>✨ LunarDB-JS</a></br>
         <a href='https://github.com/TheAncientOwl/astro-huddle'>🚀 AstroHuddle</a>
     </p>
