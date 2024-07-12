@@ -32,6 +32,13 @@
     <p>
         LunarDB incorporates advanced security measures and ensures data<br/> integrity, providing a reliable foundation for critical applications
     </p>
+    <h3>💡 Capabilities and Related Projects</h3>
+    <p>
+        <a href=''>🌙 Moonlight</a></br>
+        <a href=''>💻 CLI / 🌐 Server</a></br>
+        <a href='https://github.com/TheAncientOwl/lunardb-js'>✨ LunarDB-JS</a></br>
+        <a href='https://github.com/TheAncientOwl/astro-huddle'>🚀 AstroHuddle</a>
+    </p>
     <br/>
     <a href="./LICENSE">
       <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
